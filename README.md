@@ -491,7 +491,7 @@ This repository is licensed under the [Qwen Research License Agreement](./LICENS
 
 ## Contact and Join Us
 
-If you'd like to get in touch with our research team, join our [Discord](https://discord.gg/z3GAxXZ9Ce) or connect via [WeChat](assets/wechat.png). We welcome issues and pull requests on GitHub.
+If you'd like to get in touch with our research team, join our [Discord](https://discord.gg/z3GAxXZ9Ce). We welcome issues and pull requests on GitHub.
 
 If you're passionate about fundamental research, we're hiring full-time employees and research interns. Reach out at fulai.hr@alibaba-inc.com.
 
