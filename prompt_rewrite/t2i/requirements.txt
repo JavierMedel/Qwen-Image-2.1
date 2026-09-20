@@ -1,7 +1,0 @@
-# qwen21_t2i_pe_9b 推理依赖（实测环境：mgt_pe）。
-# transformers 5.4 是 qwen3_5 架构的必需版本；vllm 0.19.1 与之匹配。
-# torch 由 vllm 自动拉取（实测 2.10.0+cu128），一般无需手动指定。
-vllm==0.19.1
-transformers==5.4.0
-openai>=2.0
-json-repair>=0.5

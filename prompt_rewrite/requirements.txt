@@ -1,0 +1,14 @@
+# Prompt rewrite dependencies.
+# transformers 5.4+ is required for the Qwen3.5-VL architecture.
+transformers>=5.4.0
+tokenizers>=0.22
+huggingface_hub>=1.20
+accelerate>=1.0
+torch>=2.4.0
+torchvision
+pillow
+tqdm
+
+# vLLM (optional; only needed for run_vllm.py and serve.sh)
+vllm>=0.19
+openai>=2.0
