@@ -21,7 +21,7 @@ Four key improvements define this release:
 - **Realistic Textures and Refined Aesthetics** — Improved typography, portrait lighting, and fine details for more visually compelling results.
 
 <p align="center">
-    <img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-01.png" width="100%"/>
+    <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-01.png" width="100%"/>
 </p>
 
 ## News
@@ -386,7 +386,7 @@ Qwen-Image-2.1 is a single-stream DiT with the following design:
 The mixed-granularity attention architecture enables efficient **prefix KV cache reuse**: input images and text instructions are computed once at the first denoising step and cached for all subsequent steps.
 
 <p align="center">
-    <img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-03.png" width="100%"/>
+    <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-03.png" width="100%"/>
 </p>
 
 ## Showcase
@@ -394,59 +394,59 @@ The mixed-granularity attention architecture enables efficient **prefix KV cache
 ### Native Transparency
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-04.png" width="30%"/>
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-05.png" width="30%"/>
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-06.png" width="30%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-04.png" width="30%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-05.png" width="30%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-06.png" width="30%"/>
 </p>
 
 ### Multi-Reference Editing
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-15.png" width="100%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-15.png" width="100%"/>
 </p>
 <p align="center"><em>Group photograph generated from six individual portrait references</em></p>
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-16.png" width="100%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-16.png" width="100%"/>
 </p>
 <p align="center"><em>Complete outfit assembled from five reference images (model, clothing, shoes, bag, hat)</em></p>
 
 ### Local Editing
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-18.png" width="48%"/>
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-19.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-18.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-19.png" width="48%"/>
 </p>
 <p align="center"><em>Circle-guided multi-region editing: remove watch, change hair color, replace clothing</em></p>
 
 ### Portrait and Product Fidelity
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-25.png" width="48%"/>
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-26.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-25.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-26.png" width="48%"/>
 </p>
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-31.png" width="48%"/>
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-32.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-31.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-32.png" width="48%"/>
 </p>
 
 ### Text Rendering
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-43.png" width="48%"/>
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-44.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-43.png" width="48%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-44.png" width="48%"/>
 </p>
 
 ### Panorama and Storyboard
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-38.png" width="100%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-38.png" width="100%"/>
 </p>
 <p align="center"><em>Panorama generated from a selfie</em></p>
 
 <p align="center">
-<img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/image2.1/images/example-42.png" width="100%"/>
+<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-42.png" width="100%"/>
 </p>
 <p align="center"><em>Storyboard generated from a three-view character reference</em></p>
 
