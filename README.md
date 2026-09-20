@@ -477,6 +477,12 @@ Qwen-Image 2.1 is natively supported in [ComfyUI](https://github.com/Comfy-Org/C
 
 [SGLang-Diffusion](https://github.com/sgl-project/sglang) provides native, high-performance inference with multi-GPU parallelism, memory offloading, and optimized kernels. See the [Qwen-Image 2.1 cookbook](https://docs.sglang.io/cookbook/diffusion/Qwen-Image/Qwen-Image-2.1) and [PR #39983](https://github.com/sgl-project/sglang/pull/39983).
 
+### Wuli.art
+
+For users in mainland China, [wuli.art](https://wuli.art/explore) offers free access to all Qwen Image 2.1 features in both Chatbox and Canvas, including image generations with transparent background.
+
+![Qwen Image 2.1 on wuli.art](https://img.alicdn.com/imgextra/i4/O1CN01THqz79Bcz2L5YPrs_!!6000000002303-0-tps-2736-1536.jpg)
+
 ### ModelScope
 
 ModelScope fully supports Qwen-Image-2.1. Built on its open-source [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) framework, the platform enables seamless model download, online generation and LoRA training. Explore these capabilities at [ModelScope Civision](https://modelscope.cn/aigc).
