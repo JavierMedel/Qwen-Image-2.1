@@ -31,7 +31,9 @@ Native transparency is a major addition in this release. In December 2025, we in
 Here are examples of transparent images generated directly from text:
 
 <p align="center">
-    <img src="./assets/example-05.png" width="100%"/>
+    <img src="./assets/example-04.png" width="32%"/>
+    <img src="./assets/example-05.png" width="32%"/>
+    <img src="./assets/example-07.png" width="32%"/>
 </p>
 
 ## News
