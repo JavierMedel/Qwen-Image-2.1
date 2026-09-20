@@ -31,6 +31,7 @@ Four key improvements define this release:
 - 2026.09.20: [ComfyUI](https://github.com/Comfy-Org/ComfyUI) natively supports Qwen-Image-2.1 from Day 0. Compatible weights at [Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1), with example workflows for [text-to-image](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_t2i.json) and [image editing](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_image_edit.json).
 - 2026.09.20: [vLLM-Omni](https://github.com/vllm-project/vllm-omni) supports high-performance Qwen-Image-2.1 inference from Day 0, with step-wise execution, prefix KV caching, CUDA Graph decode, FP8 quantization, and TP/Ulysses parallelism.
 - 2026.09.20: [SGLang](https://github.com/sgl-project/sglang) provides Day-0 native support for Qwen-Image-2.1, including prefix caching, Cache-DiT, CUDA graphs, TP/Ulysses/Ring/CFG parallelism, and component offload. See [PR #39983](https://github.com/sgl-project/sglang/pull/39983).
+- 2026.09.20: [LightX2V](https://github.com/ModelTC/LightX2V) delivers Day 0 acceleration for Qwen-Image-2.1! Check out the [usage guide](https://github.com/ModelTC/LightX2V/tree/main/scripts/qwen_image_21) for more details.
 
 ## Quick Start
 
@@ -366,6 +367,12 @@ sglang generate \
 ```
 
 For image editing, add `--image-path input.png`. See the [Qwen-Image 2.1 cookbook](https://docs.sglang.io/cookbook/diffusion/Qwen-Image/Qwen-Image-2.1) for installation, GPU-specific commands, image editing, and transparent-background examples.
+
+## Inference with LightX2V
+
+[LightX2V](https://github.com/ModelTC/LightX2V) is a framework for image and video generation models, highly optimized for inference speed and GPU memory efficiency on both data center and consumer GPUs.
+
+LightX2V supports Qwen-Image-2.1 for both text-to-image generation and image editing. See the [usage guide](https://github.com/ModelTC/LightX2V/tree/main/scripts/qwen_image_21) to get started.
 
 ## Architecture
 
