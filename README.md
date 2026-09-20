@@ -24,6 +24,16 @@ Four key improvements define this release:
     <img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-01.png" width="100%"/>
 </p>
 
+## Native Transparency, Unified Creation and Editing
+
+Native transparency is a major addition in this release. In December 2025, we introduced Qwen-Image-Layered as a dedicated model supporting transparent image generation. Qwen-Image-2.1 now integrates this capability into a unified model, using the prompt to determine whether to output a regular image or an image with a transparency channel.
+
+Here are examples of transparent images generated directly from text:
+
+<p align="center">
+    <img src="./assets/example-05.png" width="100%"/>
+</p>
+
 ## News
 
 - 2026.09.20: We released Qwen-Image-2.1! Check our [Blog](https://qwen.ai/blog?id=qwen-image-2.1) for more details. Weights available at [HuggingFace](https://huggingface.co/Qwen/Qwen-Image-2.1) and [ModelScope](https://modelscope.cn/models/Qwen/Qwen-Image-2.1).
