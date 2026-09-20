@@ -31,7 +31,7 @@ Four key improvements define this release:
 
 - 2026.09.20: We released Qwen-Image-2.1! Check our [Blog](https://qwen.ai/blog?id=qwen-image-2.1) for more details. Weights available at [HuggingFace](https://huggingface.co/Qwen/Qwen-Image-2.1) and [ModelScope](https://modelscope.cn/models/Qwen/Qwen-Image-2.1).
 - 2026.09.20: [Diffusers](https://github.com/huggingface/diffusers) supports Qwen-Image-2.1 from Day 0 via `QwenImage21Pipeline`. See [PR #14804](https://github.com/huggingface/diffusers/pull/14804).
-- 2026.09.20: [ComfyUI](https://github.com/Comfy-Org/ComfyUI) supports Qwen-Image-2.1 from Day 0, with block-causal attention, prefix KV caching, and RGBA output. See [PR #16400](https://github.com/Comfy-Org/ComfyUI/pull/16400).
+- 2026.09.20: [ComfyUI](https://github.com/Comfy-Org/ComfyUI) natively supports Qwen-Image-2.1 from Day 0. Compatible weights at [Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1), with example workflows for [text-to-image](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_t2i.json) and [image editing](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_image_edit.json).
 - 2026.09.20: [vLLM-Omni](https://github.com/vllm-project/vllm-omni) supports high-performance Qwen-Image-2.1 inference from Day 0, with step-wise execution, prefix KV caching, CUDA Graph decode, FP8 quantization, and TP/Ulysses parallelism.
 - 2026.09.20: [SGLang](https://github.com/sgl-project/sglang) provides Day-0 native support for Qwen-Image-2.1, including prefix caching, Cache-DiT, CUDA graphs, TP/Ulysses/Ring/CFG parallelism, and component offload. See [PR #39983](https://github.com/sgl-project/sglang/pull/39983).
 
@@ -420,7 +420,7 @@ The mixed-granularity attention architecture enables efficient **prefix KV cache
 
 ### ComfyUI
 
-[ComfyUI](https://github.com/Comfy-Org/ComfyUI) provides native node-based support for Qwen-Image-2.1, with block-causal attention, prefix KV caching (~1.7× speedup on edits), and RGBA output. See [PR #16400](https://github.com/Comfy-Org/ComfyUI/pull/16400).
+Qwen-Image 2.1 is natively supported in [ComfyUI](https://github.com/Comfy-Org/ComfyUI) on Day 0. The compatible model weights can be downloaded from Hugging Face [Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1). See example workflows for [text-to-image](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_t2i.json) and [image editing](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_image_edit.json).
 
 ### vLLM-Omni
 
@@ -432,8 +432,7 @@ The mixed-granularity attention architecture enables efficient **prefix KV cache
 
 ### ModelScope
 
-* [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) — Low-VRAM inference with layer-by-layer offload, FP8 quantization, LoRA/full training.
-* [DiffSynth-Engine](https://github.com/modelscope/DiffSynth-Engine) — Advanced inference optimizations including FBCache acceleration.
+ModelScope fully supports Qwen-Image-2.1. Built on its open-source [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) framework, the platform enables seamless model download, online generation and LoRA training. Explore these capabilities at [ModelScope Civision](https://modelscope.cn/aigc).
 
 ## License Agreement
 
