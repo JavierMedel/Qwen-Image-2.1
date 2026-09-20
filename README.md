@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="./assets/logo.png" width="400"/>
+    <img src="./assets/logo.png" width="600"/>
 </p>
 <p align="center">
     🤖 <a href="https://modelscope.cn/models/Qwen/Qwen-Image-2.1">ModelScope</a>&nbsp;&nbsp;|
