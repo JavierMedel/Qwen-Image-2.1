@@ -5,7 +5,7 @@
     💜 <a href="https://chat.qwen.ai/">Qwen Chat</a>&nbsp;&nbsp;|
     &nbsp;&nbsp;🤗 <a href="https://huggingface.co/Qwen/Qwen-Image-2.1">HuggingFace</a>&nbsp;&nbsp;|
     &nbsp;&nbsp;🤖 <a href="https://modelscope.cn/models/Qwen/Qwen-Image-2.1">ModelScope</a>&nbsp;&nbsp;|
-    &nbsp;&nbsp;📑 <a href="https://qwenlm.github.io/blog/qwen-image-2.1/">Blog</a>&nbsp;&nbsp;
+    &nbsp;&nbsp;📑 <a href="https://qwen.ai/blog?id=qwen-image-2.1">Blog</a>&nbsp;&nbsp;
     <br>
     🖥️ <a href="https://huggingface.co/spaces/Qwen/Qwen-Image-2.1">Demo</a>&nbsp;&nbsp;|
     &nbsp;&nbsp;💬 <a href="https://github.com/QwenLM/Qwen-Image-2.1/blob/main/assets/wechat.png">WeChat (微信)</a>&nbsp;&nbsp;|
@@ -29,7 +29,7 @@ Four key improvements define this release:
 
 ## News
 
-- 2026.09.20: We released Qwen-Image-2.1! Check our [Blog](https://qwenlm.github.io/blog/qwen-image-2.1/) for more details. Weights available at [HuggingFace](https://huggingface.co/Qwen/Qwen-Image-2.1) and [ModelScope](https://modelscope.cn/models/Qwen/Qwen-Image-2.1).
+- 2026.09.20: We released Qwen-Image-2.1! Check our [Blog](https://qwen.ai/blog?id=qwen-image-2.1) for more details. Weights available at [HuggingFace](https://huggingface.co/Qwen/Qwen-Image-2.1) and [ModelScope](https://modelscope.cn/models/Qwen/Qwen-Image-2.1).
 - 2026.09.20: [Diffusers](https://github.com/huggingface/diffusers) supports Qwen-Image-2.1 from Day 0 via `QwenImage21Pipeline`. See [PR #14804](https://github.com/huggingface/diffusers/pull/14804).
 - 2026.09.20: [ComfyUI](https://github.com/Comfy-Org/ComfyUI) supports Qwen-Image-2.1 from Day 0, with block-causal attention, prefix KV caching, and RGBA output. See [PR #16400](https://github.com/Comfy-Org/ComfyUI/pull/16400).
 - 2026.09.20: [vLLM-Omni](https://github.com/vllm-project/vllm-omni) supports high-performance Qwen-Image-2.1 inference from Day 0, with step-wise execution, prefix KV caching, CUDA Graph decode, FP8 quantization, and TP/Ulysses parallelism.
