@@ -362,7 +362,7 @@ vllm serve Qwen/Qwen-Image-2.1 --omni \
   --max-num-seqs 8
 ```
 
-See the [vLLM-Omni recipe](https://github.com/vllm-project/vllm-omni/blob/qwen-image-2.1/recipes/Qwen/Qwen-Image-2.1.md) for FP8 quantization, prefix KV cache options, multi-GPU parallelism, and detailed benchmarks.
+See the [vLLM-Omni recipe](https://recipes.vllm.ai/Qwen/Qwen-Image-2.1) for FP8 quantization, prefix KV cache options, multi-GPU parallelism, and detailed benchmarks.
 
 ## Inference with SGLang
 
@@ -469,7 +469,7 @@ Qwen-Image 2.1 is natively supported in [ComfyUI](https://github.com/Comfy-Org/C
 
 ### vLLM-Omni
 
-[vLLM-Omni](https://github.com/vllm-project/vllm-omni) provides production-grade serving with step-wise execution, CUDA Graph decode, FP8 quantization, and tensor/sequence parallelism. See the [Qwen-Image-2.1 recipe](https://github.com/vllm-project/vllm-omni/blob/qwen-image-2.1/recipes/Qwen/Qwen-Image-2.1.md).
+[vLLM-Omni](https://github.com/vllm-project/vllm-omni) accelerates Qwen-Image 2.1 through cross-step prefix KV cache reuse and dedicated CUDA Graphs, reducing redundant computation and kernel launch overhead. Request-level and step-level continuous batching improve GPU utilization and throughput, with phase-aware prefill and decode scheduling. It also supports tensor and Ulysses sequence parallelism, distributed VAE decoding with adaptive OOM recovery, FP8 weights and prefix KV storage, and CPU offloading for varying memory budgets. See the [Qwen-Image-2.1 recipe](https://recipes.vllm.ai/Qwen/Qwen-Image-2.1) for details.
 
 ### SGLang
 
