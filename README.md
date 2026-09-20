@@ -170,9 +170,83 @@ image = pipe(
 
 ## Prompt Rewriting
 
-For best results, we recommend using a prompt rewriting model to expand short prompts into detailed descriptions. This section will be updated with the official prompt rewriting tool and system prompts once available.
+For best results, we recommend using the official **prompt rewriting model** to expand short prompts into detailed, high-quality descriptions. The rewriter is a Qwen3.5-VL 9B model fine-tuned for image prompt expansion — it turns a brief request in any language into a long English paragraph describing the finished image, plus a recommended aspect ratio.
 
-<!-- TODO: Add prompt rewriting tool, system prompt examples, and integration code -->
+The rewriting code and system prompt are in [`prompt_rewrite/`](./prompt_rewrite/).
+
+### Option 1: vLLM Server (Recommended for Production)
+
+Start the vLLM inference server:
+
+```bash
+cd prompt_rewrite
+pip install -r requirements.txt
+bash serve.sh   # default: bf16, all visible GPUs, port 8100
+```
+
+Rewrite a prompt:
+
+```bash
+python pe_rewrite.py "一只在雨中弹吉他的柯基"
+```
+
+Output:
+
+```json
+{
+  "thinking": "...",
+  "rewritten_prompt": "<long detailed English prompt>",
+  "wh_ratio": "16:9"
+}
+```
+
+Then pass `rewritten_prompt` and the corresponding resolution to the image generation pipeline.
+
+### Option 2: Local Inference with Transformers
+
+No server required — load the model directly:
+
+```bash
+python pe_rewrite_hf.py "a corgi playing guitar in the rain"
+```
+
+### Integration with the Pipeline
+
+```python
+import json
+import subprocess
+import torch
+from diffusers import QwenImage21Pipeline
+
+WH_RATIO_TO_SIZE = {
+    "1:1": (2048, 2048), "4:3": (2400, 1792), "3:4": (1792, 2400),
+    "3:2": (2528, 1696), "2:3": (1696, 2528), "16:9": (2752, 1536),
+    "9:16": (1536, 2752),
+}
+
+# Step 1: Rewrite the prompt
+result = subprocess.run(
+    ["python", "prompt_rewrite/pe_rewrite.py", "a corgi playing guitar in the rain"],
+    capture_output=True, text=True
+)
+rewrite = json.loads(result.stdout)
+prompt = rewrite["rewritten_prompt"]
+width, height = WH_RATIO_TO_SIZE.get(rewrite["wh_ratio"], (2048, 2048))
+
+# Step 2: Generate the image
+pipe = QwenImage21Pipeline.from_pretrained(
+    "Qwen/Qwen-Image-2.1", torch_dtype=torch.bfloat16
+).to("cuda")
+
+image = pipe(
+    prompt=prompt,
+    width=width, height=height,
+    num_inference_steps=40,
+    generator=torch.Generator("cuda").manual_seed(42),
+).images[0]
+
+image.save("rewritten_example.png")
+```
 
 ## Advanced Usage
 
