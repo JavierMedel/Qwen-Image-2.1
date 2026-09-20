@@ -1,0 +1,13 @@
+# Pinned to the env this reference impl was tested with (transformers 5.4.0).
+transformers==5.4.0
+tokenizers==0.22.1
+huggingface_hub==1.27.0
+accelerate==1.11.0
+torch==2.10.0
+torchvision==0.25.0
+pillow==11.1.0
+tqdm==4.67.1
+
+# vLLM path (optional; only needed for run_vllm.py)
+vllm==0.19.1
+openai==2.21.0

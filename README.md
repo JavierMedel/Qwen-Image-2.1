@@ -170,24 +170,45 @@ image = pipe(
 
 ## Prompt Rewriting
 
-For best results, we recommend using the official **prompt rewriting model** to expand short prompts into detailed, high-quality descriptions. The rewriter is a Qwen3.5-VL 9B model fine-tuned for image prompt expansion — it turns a brief request in any language into a long English paragraph describing the finished image, plus a recommended aspect ratio.
+For best results, we recommend using the official **prompt rewriting models** to expand short prompts into detailed, high-quality descriptions. Two fine-tuned Qwen3.5-VL 9B models are provided — one for text-to-image generation, one for image editing — each trained with a task-specific system prompt.
 
-The rewriting code and system prompt are in [`prompt_rewrite/`](./prompt_rewrite/).
+The rewriting code and system prompts are in [`prompt_rewrite/`](./prompt_rewrite/):
 
-### Option 1: vLLM Server (Recommended for Production)
-
-Start the vLLM inference server:
-
-```bash
-cd prompt_rewrite
-pip install -r requirements.txt
-bash serve.sh   # default: bf16, all visible GPUs, port 8100
+```
+prompt_rewrite/
+├── t2i/                          # Text-to-image prompt rewriter
+│   ├── pe_rewrite.py             # Call via vLLM server
+│   ├── pe_rewrite_hf.py          # Local inference with transformers
+│   ├── serve.sh                  # Launch vLLM server
+│   ├── requirements.txt
+│   └── qwen21_t2i_pe_9b/        # Config, tokenizer, system prompt (weights on HF)
+└── edit/                         # Image editing prompt rewriter
+    ├── run_vllm.py               # vLLM offline batch inference
+    ├── run_transformers.py        # Local inference with transformers
+    ├── pe_output.py              # Shared answer parsing
+    ├── requirements.txt
+    ├── prompts/system_prompt.txt  # Unified edit system prompt
+    └── data/                     # Example inputs with images
 ```
 
-Rewrite a prompt:
+### Text-to-Image Prompt Rewriting
+
+The T2I rewriter turns a brief request in any language into a long English paragraph describing the finished image, plus a recommended aspect ratio.
+
+**Via vLLM server** (recommended for production):
 
 ```bash
+cd prompt_rewrite/t2i
+pip install -r requirements.txt
+bash serve.sh   # default: bf16, all visible GPUs, port 8100
+
 python pe_rewrite.py "一只在雨中弹吉他的柯基"
+```
+
+**Via local transformers** (no server):
+
+```bash
+python pe_rewrite_hf.py "a corgi playing guitar in the rain"
 ```
 
 Output:
@@ -200,15 +221,51 @@ Output:
 }
 ```
 
-Then pass `rewritten_prompt` and the corresponding resolution to the image generation pipeline.
+### Image Editing Prompt Rewriting
 
-### Option 2: Local Inference with Transformers
+The edit rewriter takes a vague editing instruction plus the input image(s) and produces a precise, actionable prompt. It supports multi-image inputs (`<image1>`, `<image2>`, ...) and outputs both the rewritten prompt and a canvas decision (`wh_ratio` or `ratio_follow`).
 
-No server required — load the model directly:
+**Via vLLM offline batch** (recommended):
 
 ```bash
-python pe_rewrite_hf.py "a corgi playing guitar in the rain"
+cd prompt_rewrite/edit
+pip install -r requirements.txt
+
+python run_vllm.py \
+    --ckpt /path/to/edit_pe_ckpt \
+    --input data/example.jsonl \
+    --output out.jsonl
 ```
+
+**Via local transformers**:
+
+```bash
+python run_transformers.py \
+    --ckpt /path/to/edit_pe_ckpt \
+    --input data/example.jsonl \
+    --output out.jsonl
+```
+
+Input format (JSONL):
+
+```json
+{"id": "abc123", "prompt": "make the sky sunset", "input_images": ["images/photo.png"]}
+```
+
+Output:
+
+```json
+{
+  "id": "abc123",
+  "positive_prompt": "Replace the daytime sky with a warm sunset ...",
+  "wh_ratio": "",
+  "ratio_follow": "<image1>",
+  "parse_ok": true
+}
+```
+
+- `wh_ratio` — model chose a new aspect ratio (e.g. `"16:9"`)
+- `ratio_follow` — output inherits the specified input image's aspect ratio (e.g. `"<image1>"`)
 
 ### Integration with the Pipeline
 
@@ -226,7 +283,7 @@ WH_RATIO_TO_SIZE = {
 
 # Step 1: Rewrite the prompt
 result = subprocess.run(
-    ["python", "prompt_rewrite/pe_rewrite.py", "a corgi playing guitar in the rain"],
+    ["python", "prompt_rewrite/t2i/pe_rewrite.py", "a corgi playing guitar in the rain"],
     capture_output=True, text=True
 )
 rewrite = json.loads(result.stdout)
