@@ -478,7 +478,13 @@ For users in mainland China, [wuli.art](https://wuli.art/explore) offers free ac
 
 ModelScope fully supports Qwen-Image-2.1. Built on its open-source [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) framework, the platform enables seamless model download, online generation and LoRA training. Explore these capabilities at [ModelScope Civision](https://modelscope.cn/aigc).
 
-### Run Qwen-Image-2.1 on Diverse AI Chips via FlagOS
+## Hardware Support
+
+### AMD Radeon GPU
+
+Get ready to run Qwen-Image 2.1 on AMD Radeon GPU. With ROCm, PyTorch, and Diffusers, developers can easily explore high-quality text-to-image generation on AMD GPUs.
+
+### Diverse AI Chips via FlagOS
 
 [FlagOS](https://github.com/flagos-ai) is a fully open-source system software stack for heterogeneous AI chips. It unifies the model–system–chip layers to enable a "develop once, run anywhere" workflow, eliminating the fragmentation among vendor-specific software stacks and substantially lowering the cost of porting AI workloads across accelerators.
 
