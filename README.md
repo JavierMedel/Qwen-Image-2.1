@@ -2,8 +2,7 @@
     <img src="https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen-Image/qwen_image_logo.png" width="400"/>
 </p>
 <p align="center">
-    💜 <a href="https://chat.qwen.ai/">Qwen Chat</a>&nbsp;&nbsp;|
-    &nbsp;&nbsp;🤗 <a href="https://huggingface.co/Qwen/Qwen-Image-2.1">HuggingFace</a>&nbsp;&nbsp;|
+    🤗 <a href="https://huggingface.co/Qwen/Qwen-Image-2.1">HuggingFace</a>&nbsp;&nbsp;|
     &nbsp;&nbsp;🤖 <a href="https://modelscope.cn/models/Qwen/Qwen-Image-2.1">ModelScope</a>&nbsp;&nbsp;|
     &nbsp;&nbsp;📑 <a href="https://qwen.ai/blog?id=qwen-image-2.1">Blog</a>&nbsp;&nbsp;
     <br>
