@@ -474,6 +474,14 @@ For users in mainland China, [wuli.art](https://wuli.art/explore) offers free ac
 
 ![Qwen Image 2.1 on wuli.art](https://img.alicdn.com/imgextra/i4/O1CN01THqz79Bcz2L5YPrs_!!6000000002303-0-tps-2736-1536.jpg)
 
+### Run Qwen-Image-2.1 on Diverse AI Chips via FlagOS
+
+[FlagOS](https://github.com/flagos-ai) is a fully open-source system software stack for heterogeneous AI chips. It unifies the model–system–chip layers to enable a "develop once, run anywhere" workflow, eliminating the fragmentation among vendor-specific software stacks and substantially lowering the cost of porting AI workloads across accelerators.
+
+In this release, Qwen-Image-2.1 leverages the FlagOS software stack to provide direct multi-chip support. By integrating the Triton-based operator library [FlagGems](https://github.com/flagos-ai/FlagGems) via the [Torch-FL](https://github.com/flagos-ai/Torch-FL) plugin, FlagOS enables seamless adaptation of the Diffusers library across chip platforms; the usage experience remains identical to that on NVIDIA, requiring zero code modifications. **Inference accuracy across all platforms has been aligned with the official implementation.**
+
+Prebuilt images and weights for 8 chip platforms are released under [FlagRelease](https://modelscope.cn/organization/FlagRelease) — for example, [T-Head zhenwu](https://modelscope.cn/models/FlagRelease/Qwen-Image-2.1-BF16-zhenwu-FlagOS) and [Arm](https://modelscope.cn/models/FlagRelease/Qwen-Image-2.1-W8A8-arm-FlagOS).
+
 ### ModelScope
 
 ModelScope fully supports Qwen-Image-2.1. Built on its open-source [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) framework, the platform enables seamless model download, online generation and LoRA training. Explore these capabilities at [ModelScope Civision](https://modelscope.cn/aigc).
