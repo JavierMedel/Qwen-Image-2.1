@@ -113,7 +113,9 @@ result.save("multi_ref_example.png")
 
 ### Transparent Image Generation (RGBA)
 
-The model natively generates transparent images when prompted:
+The model natively generates transparent images. For best results, use the recommended prompt format:
+
+> `This is an RGBA image with transparency. <your description>. The image has alpha channel and the background is transparent.`
 
 ```python
 import torch
@@ -123,9 +125,8 @@ pipe = QwenImage21Pipeline.from_pretrained(
     "Qwen/Qwen-Image-2.1", torch_dtype=torch.bfloat16
 ).to("cuda")
 
-# The model infers transparency from the prompt
 image = pipe(
-    prompt="A cute cartoon dragon sticker with transparent background, PNG asset",
+    prompt="This is an RGBA image with transparency. A cute cartoon dragon sticker. The image has alpha channel and the background is transparent.",
     num_inference_steps=40,
     generator=torch.Generator("cuda").manual_seed(42),
 ).images[0]
