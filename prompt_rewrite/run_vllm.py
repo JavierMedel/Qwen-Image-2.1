@@ -1,188 +1,152 @@
 #!/usr/bin/env python3
-"""Unified prompt rewriter — vLLM offline-batch impl.
+"""Prompt enhancer -- vLLM offline batch, for both the t2i and edit tasks.
 
-Handles both text-to-image and image editing prompt rewriting. Mode is
-detected automatically from input (images present → edit, else → t2i).
+Recommended for anything beyond a few samples. One process loads the checkpoint
+once and runs the whole JSONL through `LLM.chat()`.
 
-Usage:
-    # T2I batch
-    python run_vllm.py --ckpt /path/to/t2i_ckpt --input t2i_prompts.jsonl --output out.jsonl
+    # text-to-image prompt expansion (no source images)
+    python run_vllm.py --task t2i --ckpt Qwen/Qwen-Image-2.1-PE-T2I \\
+        --input data/t2i_example.jsonl --output out.jsonl
 
-    # Edit batch
-    python run_vllm.py --ckpt /path/to/edit_ckpt --input data/example.jsonl --output out.jsonl
+    # image-editing instruction rewrite (1..N source images per case)
+    python run_vllm.py --task edit --ckpt Qwen/Qwen-Image-2.1-PE-I2I \\
+        --input data/edit_example.jsonl --output out.jsonl
 
-    # Single T2I prompt
-    python run_vllm.py --ckpt /path/to/t2i_ckpt --prompt "a corgi in the rain"
+The system prompt comes from the checkpoint's own `system_prompt.txt`, or from
+`--system-prompt <file>`. The two tasks have separate prompts; there is no
+unified one.
 """
+
+from __future__ import annotations
 
 import argparse
 import base64
 import io
-import json
 import os
-import sys
 from pathlib import Path
 
+# Some clusters preset GLOO/NCCL socket-interface envs to names that do not exist
+# on the current host (e.g. bond1); vLLM's gloo backend then dies on init. Drop
+# any that name a missing interface so vLLM auto-selects a live one.
 for _v in ("GLOO_SOCKET_IFNAME", "TP_SOCKET_IFNAME", "NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME"):
     _iface = os.environ.get(_v)
     if _iface and not os.path.isdir(f"/sys/class/net/{_iface}"):
         os.environ.pop(_v, None)
 
-from PIL import Image  # noqa: E402
 from vllm import LLM, SamplingParams  # noqa: E402
 
-from pe_output import build_record, report_parse_failures, split_thinking  # noqa: E402
-
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+import pe_core as core  # noqa: E402
 
 
 def image_to_data_uri(path: Path, max_pixels: int) -> str:
-    im = Image.open(path).convert("RGB")
-    w, h = im.size
-    if max_pixels and w * h > max_pixels:
-        s = (max_pixels / float(w * h)) ** 0.5
-        im = im.resize((max(1, int(w * s)), max(1, int(h * s))), Image.LANCZOS)
+    """Encode a (downscaled) source image as a PNG data URI for `LLM.chat`."""
+    im = core.load_image(path, max_pixels)
     buf = io.BytesIO()
     im.save(buf, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
-def detect_mode(cases: list[dict]) -> str:
-    has_images = any(case.get("input_images") for case in cases)
-    return "edit" if has_images else "t2i"
-
-
-def get_system_prompt(mode: str, override: str | None = None) -> str:
-    if override:
-        return Path(override).read_text(encoding="utf-8").strip()
-    name = "system_prompt_edit.txt" if mode == "edit" else "system_prompt_t2i.txt"
-    return (PROMPTS_DIR / name).read_text(encoding="utf-8").strip()
-
-
-def build_messages(system_prompt: str, user_prompt: str, image_uris: list[str]) -> list[dict]:
-    user_content: list[dict] = [{"type": "image_url", "image_url": {"url": u}} for u in image_uris]
-    user_content.append({"type": "text", "text": user_prompt})
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_content},
-    ]
-
-
-def main():
-    ap = argparse.ArgumentParser(description="Unified prompt rewriter (vLLM batch)")
-    ap.add_argument("--ckpt", required=True)
-    ap.add_argument("--prompt", help="Single prompt (no --input needed).")
-    ap.add_argument("--images", nargs="*", default=[], help="Images for single-prompt mode.")
-    ap.add_argument("--input", help="JSONL batch input.")
-    ap.add_argument("--output", help="Output JSONL (required with --input).")
-    ap.add_argument("--system-prompt", help="Override system prompt file.")
-    ap.add_argument("--tp", type=int, default=1)
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--task", required=True, choices=sorted(core.PROFILES),
+                    help="t2i = text only; edit = text + source image(s).")
+    ap.add_argument("--ckpt", required=True, help="Local HF dir or Hub id.")
+    ap.add_argument("--input", required=True,
+                    help="JSONL: {id, prompt, input_images?, task_type?}.")
+    ap.add_argument("--output", required=True, help="Output JSONL.")
+    ap.add_argument("--system-prompt", default=None,
+                    help="System prompt file (default: <ckpt>/system_prompt.txt).")
+    ap.add_argument("--tp", type=int, default=1, help="Tensor-parallel size.")
     ap.add_argument("--dtype", default="bfloat16")
-    ap.add_argument("--max-model-len", type=int, default=24000)
-    ap.add_argument("--limit-mm-per-prompt-image", type=int, default=10)
+    ap.add_argument("--max-model-len", type=int, default=24576)
+    ap.add_argument("--limit-mm-per-prompt-image", type=int, default=10,
+                    help="Max source images per case (edit only).")
     ap.add_argument("--gpu-memory-utilization", type=float, default=0.85)
-    ap.add_argument("--swap-space", type=int, default=8)
-    ap.add_argument("--max-num-seqs", type=int, default=32)
-    ap.add_argument("--image-max-pixels", type=int, default=1024 * 1024)
-    ap.add_argument("--max-new-tokens", type=int, default=24000)
-    ap.add_argument("--temperature", type=float, default=1.0)
-    ap.add_argument("--top-p", type=float, default=0.95)
-    ap.add_argument("--top-k", type=int, default=20)
-    ap.add_argument("--min-p", type=float, default=0.0)
-    ap.add_argument("--presence-penalty", type=float, default=0.0)
-    ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--swap-space", type=int, default=8, help="CPU KV cache (GiB).")
+    ap.add_argument("--max-num-seqs", type=int, default=32, help="Concurrent decode slots.")
+    ap.add_argument("--enforce-eager", action="store_true",
+                    help="Disable CUDA graph capture. Not needed on vLLM 0.19.1, "
+                         "where this architecture's linear-attention layers run "
+                         "fine under the default graph capture -- keep it as an "
+                         "escape hatch for other vLLM versions.")
+    # Sampling: unset means "use the task profile", which is the production
+    # setting for that task. They are not interchangeable between tasks.
+    ap.add_argument("--temperature", type=float, default=None)
+    ap.add_argument("--top-p", type=float, default=None)
+    ap.add_argument("--top-k", type=int, default=None)
+    ap.add_argument("--min-p", type=float, default=None)
+    ap.add_argument("--presence-penalty", type=float, default=None)
+    ap.add_argument("--max-new-tokens", type=int, default=None)
+    ap.add_argument("--image-max-pixels", type=int, default=None)
+    ap.add_argument("--seed", type=int, default=42,
+                    help="Engine and sampling seed. Reproducible for a fixed "
+                         "engine config (same --tp, same graph/eager mode); "
+                         "changing the engine changes the numerics.")
+    ap.add_argument("--limit", type=int, default=0, help="Process only first N cases.")
     args = ap.parse_args()
 
-    if not args.prompt and not args.input:
-        ap.error("Provide either --prompt or --input.")
-    if args.input and not args.output:
-        ap.error("--output is required with --input.")
+    profile = core.get_profile(args.task)
+    pick = lambda cli, default: default if cli is None else cli  # noqa: E731
+    temperature = pick(args.temperature, profile.temperature)
+    top_p = pick(args.top_p, profile.top_p)
+    top_k = pick(args.top_k, profile.top_k)
+    min_p = pick(args.min_p, profile.min_p)
+    presence_penalty = pick(args.presence_penalty, profile.presence_penalty)
+    max_new_tokens = pick(args.max_new_tokens, profile.max_new_tokens)
+    image_max_pixels = pick(args.image_max_pixels, profile.image_max_pixels)
 
-    if args.prompt:
-        cases = [{"id": "cli", "prompt": args.prompt}]
-        if args.images:
-            cases[0]["input_images"] = args.images
-        base_dir = Path.cwd()
-    else:
-        in_path = Path(args.input).resolve()
-        base_dir = in_path.parent
-        with open(in_path, encoding="utf-8") as f:
-            cases = [json.loads(line) for line in f if line.strip()]
-        if args.limit:
-            cases = cases[: args.limit]
+    system_prompt = core.load_system_prompt(args.system_prompt, args.ckpt)
+    in_path = Path(args.input).resolve()
+    base_dir = in_path.parent
+    cases = core.load_cases(in_path, args.limit)
 
-    mode = detect_mode(cases)
-    system_prompt = get_system_prompt(mode, args.system_prompt)
+    # Resolve and encode every input before touching the GPU: a missing image or a
+    # t2i case carrying images should fail in seconds, not after a model load.
+    conversations = []
+    for case in cases:
+        paths = core.resolve_image_paths(case, base_dir, profile)
+        uris = [image_to_data_uri(p, image_max_pixels) for p in paths]
+        conversations.append(core.build_messages(system_prompt, case["prompt"], uris))
 
-    # T2I model uses presence_penalty=1.5 by default
-    if mode == "t2i" and args.presence_penalty == 0.0:
-        args.presence_penalty = 1.5
-
-    print(f"Mode: {mode} ({len(cases)} case(s))", flush=True)
+    print(f"task={profile.name} cases={len(cases)} sampling: "
+          f"{profile.sampling_summary(temperature=temperature, top_p=top_p, top_k=top_k, min_p=min_p, presence_penalty=presence_penalty, max_new_tokens=max_new_tokens)}", flush=True)
     print(f"Loading vLLM engine from {args.ckpt} (tp={args.tp}) ...", flush=True)
-
     llm = LLM(
         model=args.ckpt,
         dtype=args.dtype,
         tensor_parallel_size=args.tp,
         max_model_len=args.max_model_len,
-        limit_mm_per_prompt={"image": args.limit_mm_per_prompt_image},
+        limit_mm_per_prompt=({"image": args.limit_mm_per_prompt_image}
+                             if profile.takes_images else None),
         gpu_memory_utilization=args.gpu_memory_utilization,
         swap_space=args.swap_space,
         max_num_seqs=args.max_num_seqs,
+        enforce_eager=args.enforce_eager,
         enable_prefix_caching=False,
         seed=args.seed,
         trust_remote_code=True,
     )
     sampling = SamplingParams(
-        temperature=args.temperature,
-        top_p=args.top_p,
-        top_k=args.top_k,
-        min_p=args.min_p,
-        presence_penalty=args.presence_penalty,
-        max_tokens=args.max_new_tokens,
-        seed=args.seed,
+        temperature=temperature, top_p=top_p, top_k=top_k, min_p=min_p,
+        presence_penalty=presence_penalty, max_tokens=max_new_tokens, seed=args.seed,
     )
 
-    conversations = []
-    for case in cases:
-        image_uris = []
-        for p in case.get("input_images", []):
-            img_path = Path(p) if Path(p).is_absolute() else base_dir / p
-            image_uris.append(image_to_data_uri(img_path, args.image_max_pixels))
-        conversations.append(build_messages(system_prompt, case["prompt"], image_uris))
-
-    outputs = llm.chat(
-        conversations,
-        sampling_params=sampling,
-        chat_template_kwargs={"enable_thinking": True},
-    )
+    # enable_thinking is passed at the top level so vLLM forwards it to
+    # apply_chat_template. The template defaults to thinking anyway; passing it
+    # explicitly keeps the intent visible and survives a template change.
+    outputs = llm.chat(conversations, sampling_params=sampling,
+                       chat_template_kwargs={"enable_thinking": True})
 
     records = []
     for case, out in zip(cases, outputs):
-        thinking, answer = split_thinking(out.outputs[0].text)
-        records.append(build_record(case, thinking, answer))
-
-    if args.output:
-        out_path = Path(args.output).resolve()
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as fout:
-            for r in records:
-                fout.write(json.dumps(r, ensure_ascii=False) + "\n")
-        print(f"Wrote {len(records)} records to {out_path}")
-        report_parse_failures(records)
-    else:
-        r = records[0]
-        print(json.dumps({
-            "thinking": r["thinking"],
-            "rewritten_prompt": r["rewritten_prompt"],
-            "wh_ratio": r["wh_ratio"],
-            **({"ratio_follow": r["ratio_follow"]} if r.get("ratio_follow") else {}),
-        }, ensure_ascii=False, indent=2))
-        if not r["parse_ok"]:
-            print("WARNING: answer did not parse as expected JSON.", file=sys.stderr)
+        thinking, answer = core.split_thinking(out.outputs[0].text)
+        records.append(core.build_record(case, thinking, answer, profile))
+    out_path = Path(args.output).resolve()
+    core.write_records(out_path, records)
+    print(f"Wrote {len(records)} records to {out_path}")
+    core.report_parse_failures(records)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

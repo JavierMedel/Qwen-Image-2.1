@@ -1,81 +1,59 @@
 #!/usr/bin/env python3
-"""Unified prompt rewriter — HuggingFace transformers reference impl.
+"""Prompt enhancer -- HuggingFace transformers reference impl, batch size 1.
 
-Handles both text-to-image (no input images) and image editing (with input
-images) prompt rewriting. The mode is determined automatically:
-  - If the input has images → edit mode (uses system_prompt_edit.txt)
-  - If the input has no images → t2i mode (uses system_prompt_t2i.txt)
+The clear, hackable path: no serving stack, one case at a time. Use `run_vllm.py`
+for anything beyond a sanity check.
 
-Usage:
-    # Single T2I prompt
-    python run_transformers.py --ckpt /path/to/t2i_ckpt --prompt "a corgi in rain"
+    python run_transformers.py --task t2i  --ckpt Qwen/Qwen-Image-2.1-PE-T2I  \\
+        --input data/t2i_example.jsonl  --output out.jsonl
+    python run_transformers.py --task edit --ckpt Qwen/Qwen-Image-2.1-PE-I2I \\
+        --input data/edit_example.jsonl --output out.jsonl
 
-    # Batch edit from JSONL
-    python run_transformers.py --ckpt /path/to/edit_ckpt --input data/example.jsonl --output out.jsonl
-
-    # Single edit with image
-    python run_transformers.py --ckpt /path/to/edit_ckpt --prompt "make the sky sunset" --images photo.png
+Both tasks load through `AutoProcessor` / `AutoModelForImageTextToText`, even
+t2i, which sends no image: the processor is a superset of the tokenizer for this
+architecture, so one code path serves both and the prompt bytes are identical to
+what the vLLM path builds.
 """
 
+from __future__ import annotations
+
 import argparse
-import json
-import os
-import sys
 from pathlib import Path
 from typing import Any
 
 import torch
-from PIL import Image
 from tqdm import tqdm
+from transformers import (AutoModelForImageTextToText, AutoProcessor,
+                          LogitsProcessor, LogitsProcessorList)
 
-from pe_output import build_record, parse_answer, report_parse_failures, split_thinking
-
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-
-
-def load_image(path: str, base_dir: Path, max_pixels: int) -> Image.Image:
-    img_path = Path(path)
-    if not img_path.is_absolute():
-        img_path = base_dir / img_path
-    im = Image.open(img_path).convert("RGB")
-    w, h = im.size
-    if max_pixels and w * h > max_pixels:
-        s = (max_pixels / float(w * h)) ** 0.5
-        im = im.resize((max(1, int(w * s)), max(1, int(h * s))), Image.LANCZOS)
-    return im
+import pe_core as core
 
 
-def detect_mode(cases: list[dict]) -> str:
-    has_images = any(case.get("input_images") for case in cases)
-    return "edit" if has_images else "t2i"
+class PresencePenalty(LogitsProcessor):
+    """vLLM-style presence penalty: subtract a constant from every token already
+    generated.
 
+    transformers has no native `presence_penalty`, and `repetition_penalty` is
+    different math (multiplicative, and it also penalises the prompt). The t2i
+    profile runs at 1.5, so getting this wrong is not cosmetic.
+    """
 
-def get_system_prompt(mode: str, override: str | None = None) -> str:
-    if override:
-        return Path(override).read_text(encoding="utf-8").strip()
-    name = "system_prompt_edit.txt" if mode == "edit" else "system_prompt_t2i.txt"
-    return (PROMPTS_DIR / name).read_text(encoding="utf-8").strip()
+    def __init__(self, penalty: float, prompt_len: int):
+        self.penalty = penalty
+        self.prompt_len = prompt_len
+
+    def __call__(self, input_ids, scores):
+        for b in range(input_ids.shape[0]):
+            generated = input_ids[b, self.prompt_len:]
+            if generated.numel():
+                scores[b, generated.unique()] -= self.penalty
+        return scores
 
 
 @torch.inference_mode()
-def rewrite_one(
-    model,
-    processor,
-    system_prompt: str,
-    user_prompt: str,
-    images: list[Image.Image],
-    max_new_tokens: int,
-    temperature: float,
-    top_p: float,
-    top_k: int,
-    seed: int,
-) -> tuple[str, str]:
-    user_content: list[dict[str, Any]] = [{"type": "image", "image": im} for im in images]
-    user_content.append({"type": "text", "text": user_prompt})
-    messages = [
-        {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-        {"role": "user", "content": user_content},
-    ]
+def rewrite(model, processor, messages: list[dict[str, Any]], *,
+            max_new_tokens: int, temperature: float, top_p: float, top_k: int,
+            presence_penalty: float, seed: int) -> tuple[str, str]:
     inputs = processor.apply_chat_template(
         messages,
         add_generation_prompt=True,
@@ -85,138 +63,102 @@ def rewrite_one(
         enable_thinking=True,
     ).to(model.device)
 
+    # This architecture marks image spans with mm_token_type_ids and needs them to
+    # compute M-RoPE. Some processor versions populate it from
+    # apply_chat_template, some don't -- create it when missing.
     if "mm_token_type_ids" not in inputs and hasattr(processor, "create_mm_token_type_ids"):
         inputs["mm_token_type_ids"] = processor.create_mm_token_type_ids(inputs["input_ids"])
+
+    prompt_len = inputs["input_ids"].shape[1]
+    processors = LogitsProcessorList()
+    if presence_penalty:
+        processors.append(PresencePenalty(presence_penalty, prompt_len))
 
     torch.manual_seed(seed)
     out = model.generate(
         **inputs,
         max_new_tokens=max_new_tokens,
-        do_sample=True,
-        temperature=temperature,
-        top_p=top_p,
-        top_k=top_k,
+        do_sample=temperature > 0,
+        temperature=temperature if temperature > 0 else None,
+        top_p=top_p if temperature > 0 else None,
+        top_k=top_k if temperature > 0 else None,
+        logits_processor=processors,
+        pad_token_id=processor.tokenizer.eos_token_id,
     )
-    new_tokens = out[0, inputs["input_ids"].shape[1] :]
-    text = processor.tokenizer.decode(new_tokens, skip_special_tokens=True)
-    return split_thinking(text)
+    text = processor.tokenizer.decode(out[0, prompt_len:], skip_special_tokens=True)
+    return core.split_thinking(text)
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Unified prompt rewriter (T2I + Edit)")
-    ap.add_argument("--ckpt", required=True, help="Model checkpoint path or HF id.")
-    # Input: either --prompt (single) or --input (JSONL batch)
-    ap.add_argument("--prompt", help="Single prompt to rewrite.")
-    ap.add_argument("--images", nargs="*", default=[], help="Input image(s) for single-prompt mode.")
-    ap.add_argument("--input", help="JSONL file: {id, prompt, input_images?, task_type?}.")
-    ap.add_argument("--output", help="Output JSONL file (required with --input).")
-    # System prompt override
-    ap.add_argument("--system-prompt", help="Override system prompt file path.")
-    # Model config
-    ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float16", "float32"])
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--task", required=True, choices=sorted(core.PROFILES),
+                    help="t2i = text only; edit = text + source image(s).")
+    ap.add_argument("--ckpt", required=True, help="Local HF dir or Hub id.")
+    ap.add_argument("--input", required=True,
+                    help="JSONL: {id, prompt, input_images?, task_type?}.")
+    ap.add_argument("--output", required=True, help="Output JSONL.")
+    ap.add_argument("--system-prompt", default=None,
+                    help="System prompt file (default: <ckpt>/system_prompt.txt).")
+    ap.add_argument("--dtype", default="bfloat16",
+                    choices=["bfloat16", "float16", "float32"])
     ap.add_argument("--device", default="cuda")
-    ap.add_argument("--image-max-pixels", type=int, default=1024 * 1024)
-    ap.add_argument("--max-new-tokens", type=int, default=24000)
-    # Sampling
-    ap.add_argument("--temperature", type=float, default=1.0)
-    ap.add_argument("--top-p", type=float, default=0.95)
-    ap.add_argument("--top-k", type=int, default=20)
-    ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--limit", type=int, default=0, help="Process only first N lines (0 = all).")
+    # Unset sampling flags fall back to the task profile (its production setting).
+    ap.add_argument("--temperature", type=float, default=None)
+    ap.add_argument("--top-p", type=float, default=None)
+    ap.add_argument("--top-k", type=int, default=None)
+    ap.add_argument("--presence-penalty", type=float, default=None)
+    ap.add_argument("--max-new-tokens", type=int, default=None)
+    ap.add_argument("--image-max-pixels", type=int, default=None)
+    ap.add_argument("--seed", type=int, default=42,
+                    help="Reproducible for a fixed model/dtype/device; changing "
+                         "any of those changes the numerics.")
+    ap.add_argument("--limit", type=int, default=0, help="Process only first N cases.")
     args = ap.parse_args()
 
-    if not args.prompt and not args.input:
-        ap.error("Provide either --prompt or --input.")
-    if args.input and not args.output:
-        ap.error("--output is required with --input.")
+    profile = core.get_profile(args.task)
+    pick = lambda cli, default: default if cli is None else cli  # noqa: E731
+    temperature = pick(args.temperature, profile.temperature)
+    top_p = pick(args.top_p, profile.top_p)
+    top_k = pick(args.top_k, profile.top_k)
+    presence_penalty = pick(args.presence_penalty, profile.presence_penalty)
+    max_new_tokens = pick(args.max_new_tokens, profile.max_new_tokens)
+    image_max_pixels = pick(args.image_max_pixels, profile.image_max_pixels)
 
-    # Build cases
-    if args.prompt:
-        cases = [{"id": "cli", "prompt": args.prompt}]
-        if args.images:
-            cases[0]["input_images"] = args.images
-        base_dir = Path.cwd()
-    else:
-        in_path = Path(args.input).resolve()
-        base_dir = in_path.parent
-        with open(in_path, encoding="utf-8") as f:
-            cases = [json.loads(line) for line in f if line.strip()]
-        if args.limit:
-            cases = cases[: args.limit]
+    system_prompt = core.load_system_prompt(args.system_prompt, args.ckpt)
+    in_path = Path(args.input).resolve()
+    base_dir = in_path.parent
+    cases = core.load_cases(in_path, args.limit)
+    # Fail on bad inputs before the model load, not 40 GB of weights later.
+    image_paths = [core.resolve_image_paths(c, base_dir, profile) for c in cases]
 
-    mode = detect_mode(cases)
-    system_prompt = get_system_prompt(mode, args.system_prompt)
-    print(f"Mode: {mode} ({len(cases)} case(s))", flush=True)
-
-    dtype = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}[args.dtype]
+    print(f"task={profile.name} cases={len(cases)} sampling: "
+          f"{profile.sampling_summary(temperature=temperature, top_p=top_p, top_k=top_k, presence_penalty=presence_penalty, max_new_tokens=max_new_tokens)}", flush=True)
     print(f"Loading model from {args.ckpt} ...", flush=True)
-
-    if mode == "edit":
-        from transformers import AutoModelForImageTextToText, AutoProcessor
-        processor = AutoProcessor.from_pretrained(args.ckpt)
-        model = AutoModelForImageTextToText.from_pretrained(
-            args.ckpt, dtype=dtype, low_cpu_mem_usage=True
-        ).to(args.device).eval()
-    else:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
-        class _Proc:
-            """Minimal wrapper so T2I uses the same rewrite_one interface."""
-            def __init__(self, ckpt):
-                self.tokenizer = AutoTokenizer.from_pretrained(ckpt)
-            def apply_chat_template(self, messages, **kwargs):
-                # Flatten content lists to plain strings for the text-only model
-                flat = []
-                for m in messages:
-                    content = m["content"]
-                    if isinstance(content, list):
-                        content = "".join(c["text"] for c in content if c.get("type") == "text")
-                    flat.append({"role": m["role"], "content": content})
-                text = self.tokenizer.apply_chat_template(
-                    flat, tokenize=False, add_generation_prompt=True, enable_thinking=True
-                )
-                return self.tokenizer(text, return_tensors="pt")
-            def create_mm_token_type_ids(self, input_ids):
-                return None
-
-        processor = _Proc(args.ckpt)
-        model = AutoModelForCausalLM.from_pretrained(
-            args.ckpt, dtype=dtype, low_cpu_mem_usage=True
-        ).to(args.device).eval()
+    dtype = {"bfloat16": torch.bfloat16, "float16": torch.float16,
+             "float32": torch.float32}[args.dtype]
+    processor = AutoProcessor.from_pretrained(args.ckpt)
+    # low_cpu_mem_usage streams weights straight to the target dtype without a
+    # full-precision CPU copy; .to(device) then moves the single copy to GPU.
+    model = AutoModelForImageTextToText.from_pretrained(
+        args.ckpt, dtype=dtype, low_cpu_mem_usage=True).to(args.device).eval()
 
     records = []
-    for case in tqdm(cases, desc="rewriting"):
-        images = []
-        if case.get("input_images"):
-            images = [load_image(p, base_dir, args.image_max_pixels) for p in case["input_images"]]
-        thinking, answer = rewrite_one(
-            model, processor, system_prompt, case["prompt"], images,
-            args.max_new_tokens, args.temperature, args.top_p, args.top_k, args.seed,
-        )
-        record = build_record(case, thinking, answer)
-        records.append(record)
-
-    # Output
-    if args.output:
-        out_path = Path(args.output).resolve()
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as fout:
-            for r in records:
-                fout.write(json.dumps(r, ensure_ascii=False) + "\n")
-        print(f"Wrote {len(records)} records to {out_path}")
-        report_parse_failures(records)
-    else:
-        # Single prompt mode: print to stdout
-        r = records[0]
-        print(json.dumps({
-            "thinking": r["thinking"],
-            "rewritten_prompt": r["rewritten_prompt"],
-            "wh_ratio": r["wh_ratio"],
-            **({"ratio_follow": r["ratio_follow"]} if r.get("ratio_follow") else {}),
-        }, ensure_ascii=False, indent=2))
-        if not r["parse_ok"]:
-            print("WARNING: answer did not parse as expected JSON.", file=sys.stderr)
+    out_path = Path(args.output).resolve()
+    for case, paths in zip(tqdm(cases, desc=f"pe-{profile.name}"), image_paths):
+        images = [core.load_image(p, image_max_pixels) for p in paths]
+        messages = core.build_messages(system_prompt, case["prompt"], images)
+        thinking, answer = rewrite(
+            model, processor, messages,
+            max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p,
+            top_k=top_k, presence_penalty=presence_penalty, seed=args.seed)
+        records.append(core.build_record(case, thinking, answer, profile))
+        # Rewrite the file each step: a long run killed halfway still leaves a
+        # complete, valid JSONL of everything finished so far.
+        core.write_records(out_path, records)
+    print(f"Wrote {len(records)} records to {out_path}")
+    core.report_parse_failures(records)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

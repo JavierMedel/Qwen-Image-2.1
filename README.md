@@ -170,23 +170,20 @@ image = pipe(
 
 For best results, we recommend using the official **prompt rewriting models** to expand short prompts into detailed, high-quality descriptions. Two fine-tuned Qwen3.5-VL 9B checkpoints are provided — one for text-to-image, one for image editing — sharing a unified codebase that auto-detects the mode from input.
 
-The rewriting code is in [`prompt_rewrite/`](./prompt_rewrite/):
+The rewriting code and weights are available at:
+- **T2I**: [Qwen/Qwen-Image-2.1-PE-T2I](https://huggingface.co/Qwen/Qwen-Image-2.1-PE-T2I)
+- **Edit**: [Qwen/Qwen-Image-2.1-PE-I2I](https://huggingface.co/Qwen/Qwen-Image-2.1-PE-I2I)
+- **Code**: [`prompt_rewrite/`](./prompt_rewrite/) — unified codebase with `--task t2i` or `--task edit`
 
 ```
 prompt_rewrite/
-├── run_transformers.py               # Local inference (single or batch)
-├── run_vllm.py                       # vLLM offline batch (recommended at scale)
-├── serve.sh                          # Launch vLLM server
-├── pe_output.py                      # Shared answer parsing
+├── run_transformers.py       # Local inference, batch size 1
+├── run_vllm.py               # vLLM offline batch (recommended at scale)
+├── serve.sh + client.py      # vLLM server + client
+├── pe_core.py                # Task profiles, parsing, output records
 ├── requirements.txt
-├── prompts/
-│   ├── system_prompt_t2i.txt         # T2I system prompt
-│   └── system_prompt_edit.txt        # Edit system prompt
-├── models/t2i/                       # T2I model config & tokenizer (weights on HF)
-└── data/                             # Edit example inputs with images
+└── data/                     # Example inputs (t2i + edit with images)
 ```
-
-The scripts auto-detect the mode: if input has images → edit (uses `system_prompt_edit.txt`), otherwise → t2i (uses `system_prompt_t2i.txt`).
 
 ### Text-to-Image
 
@@ -194,18 +191,21 @@ The scripts auto-detect the mode: if input has images → edit (uses `system_pro
 cd prompt_rewrite
 pip install -r requirements.txt
 
-# Single prompt (local transformers)
-python run_transformers.py --ckpt /path/to/t2i_pe_ckpt --prompt "一只在雨中弹吉他的柯基"
+# vLLM batch (recommended)
+python run_vllm.py --task t2i \
+    --ckpt Qwen/Qwen-Image-2.1-PE-T2I \
+    --input data/t2i_example.jsonl --output out.jsonl
 
-# Or via vLLM
-python run_vllm.py --ckpt /path/to/t2i_pe_ckpt --prompt "a corgi playing guitar in the rain"
+# Or local transformers
+python run_transformers.py --task t2i \
+    --ckpt Qwen/Qwen-Image-2.1-PE-T2I \
+    --input data/t2i_example.jsonl --output out.jsonl
 ```
 
 Output:
 
 ```json
 {
-  "thinking": "...",
   "rewritten_prompt": "<long detailed English prompt>",
   "wh_ratio": "16:9"
 }
@@ -213,16 +213,10 @@ Output:
 
 ### Image Editing
 
-The edit rewriter takes a vague editing instruction plus input image(s) and produces a precise, actionable prompt. It supports multi-image inputs (`<image1>`, `<image2>`, ...) and outputs both the rewritten prompt and a canvas decision.
-
 ```bash
-# Single edit
-python run_transformers.py --ckpt /path/to/edit_pe_ckpt \
-    --prompt "make the sky sunset" --images photo.png
-
-# Batch from JSONL
-python run_vllm.py --ckpt /path/to/edit_pe_ckpt \
-    --input data/example.jsonl --output out.jsonl
+python run_vllm.py --task edit \
+    --ckpt Qwen/Qwen-Image-2.1-PE-I2I \
+    --input data/edit_example.jsonl --output out.jsonl
 ```
 
 Input format (JSONL):
@@ -246,18 +240,17 @@ Output:
 
 ### vLLM Server
 
-For production serving:
-
 ```bash
-bash serve.sh /path/to/ckpt              # bf16, all GPUs, port 8100
-GPUS=0,1 PORT=8200 bash serve.sh /path/to/ckpt   # custom GPU/port
+CKPT=Qwen/Qwen-Image-2.1-PE-T2I bash serve.sh
+# then:
+python client.py --task t2i --model Qwen/Qwen-Image-2.1-PE-T2I \
+    "a corgi playing guitar in the rain"
 ```
 
 ### Integration with the Pipeline
 
 ```python
 import json
-import subprocess
 import torch
 from diffusers import QwenImage21Pipeline
 
@@ -267,18 +260,11 @@ WH_RATIO_TO_SIZE = {
     "9:16": (1536, 2752),
 }
 
-# Step 1: Rewrite the prompt
-result = subprocess.run(
-    ["python", "prompt_rewrite/run_transformers.py",
-     "--ckpt", "/path/to/t2i_pe_ckpt",
-     "--prompt", "a corgi playing guitar in the rain"],
-    capture_output=True, text=True
-)
-rewrite = json.loads(result.stdout)
+# After running the rewriter, read the output
+rewrite = {"rewritten_prompt": "...", "wh_ratio": "16:9"}  # from run_vllm.py output
 prompt = rewrite["rewritten_prompt"]
 width, height = WH_RATIO_TO_SIZE.get(rewrite["wh_ratio"], (2048, 2048))
 
-# Step 2: Generate the image
 pipe = QwenImage21Pipeline.from_pretrained(
     "Qwen/Qwen-Image-2.1", torch_dtype=torch.bfloat16
 ).to("cuda")
