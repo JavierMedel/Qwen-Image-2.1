@@ -441,7 +441,7 @@ The mixed-granularity attention architecture enables efficient **prefix KV cache
 ### Panorama and Storyboard
 
 <p align="center">
-<img src="https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/images/example-38.png" width="100%"/>
+<img src="./assets/example-38.jpg" width="100%"/>
 </p>
 <p align="center"><em>Panorama generated from a selfie</em></p>
 
