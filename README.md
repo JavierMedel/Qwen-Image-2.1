@@ -487,9 +487,7 @@ ModelScope fully supports Qwen-Image-2.1. Built on its open-source [DiffSynth-St
 
 ## License Agreement
 
-The code in this repository is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-The model weights are licensed under the [Qwen Research License Agreement](./LICENSE).
+This repository is licensed under the [Qwen Research License Agreement](./LICENSE).
 
 ## Contact and Join Us
 
